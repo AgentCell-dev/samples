@@ -1,5 +1,8 @@
 # AgentCell samples
 
+AgentCell is an AI-native deployment platform for small web apps and internal tools. These are
+working apps to start from, or to hand to a coding agent as the pattern to copy.
+
 Four small apps, each one directory, each deployable with three commands:
 
 ```sh
