@@ -1,0 +1,23 @@
+name: check
+
+# The sample apps are the partner tutorial and the onboarding canary's fixtures
+# (infra/ONBOARDING-CANARY.md, in the private repository). This job holds no credential: it builds
+# every image with docker on the hosted runner and runs `make check`, which starts each container
+# once, asserts its marker line, and proves the notes app keeps its notes across a restart.
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: make check (builds and runs all four samples locally)
+        run: make check
