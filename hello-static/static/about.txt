@@ -1,0 +1,3 @@
+This file is served from static/about.txt by hello-static's app.py.
+GET / does not serve this file -- it serves the marker line every sample app serves.
+Fetch this one directly: GET /about.txt
