@@ -1,6 +1,6 @@
 // echo-go: a compiled Go binary, no dependencies beyond net/http. This is the sample that
-// exercises a non-Python runtime and a build step that actually compiles something (build-1,
-// infra's remote build path).
+// exercises a non-Python runtime and a build step that actually compiles something (the
+// platform's build node, infra's remote build path).
 //
 // GET / serves the marker line every sample here serves. GET /echo reflects the request back:
 // method, path, headers and body, which is the thing an "echo" service is for and a small proof

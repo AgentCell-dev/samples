@@ -1,4 +1,4 @@
-# echo-go: a compiled build, the sample that exercises a non-Python runtime and build-1's actual
+# echo-go: a compiled build, the sample that exercises a non-Python runtime and a build node's actual
 # job -- compiling something, not just laying files into an image.
 #
 # Two stages: build with the Go toolchain, run on a bare alpine base with nothing but the static

@@ -1,8 +1,8 @@
 # echo-go
 
 A compiled Go binary with no dependencies beyond `net/http`. This is the sample that exercises a
-non-Python runtime and a real compiled build on `build-1`, rather than a script laid into an image
-unchanged.
+non-Python runtime and a real compiled build on the platform's build node, rather than a script
+laid into an image unchanged.
 
 ## Deploy it
 
