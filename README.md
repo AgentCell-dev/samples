@@ -3,7 +3,7 @@
 AgentCell is an AI-native deployment platform for small web apps and internal tools. These are
 working apps to start from, or to hand to a coding agent as the pattern to copy.
 
-Four small apps, each one directory, each deployable with three commands:
+Seven small apps, each one directory, each deployable with three commands:
 
 ```sh
 agentcell login
@@ -18,6 +18,9 @@ then open the URL `agentcell deploy` prints.
 | [`notes-sqlite`](notes-sqlite/) | Python stdlib + `sqlite3` at `/data/notes.db` | the volume contract — a note survives a redeploy and a drain |
 | [`echo-go`](echo-go/) | Go, `net/http`, no deps | a compiled build, and a non-Python runtime |
 | [`worker-node`](worker-node/) | Node 22, an HTTP server plus a background loop | a long-running process with state, the shape an agent-built app usually has |
+| [`nextjs-app`](nextjs-app/) | Next.js (App Router, TypeScript), `output: "standalone"` | a multi-stage frontend build, the stack coding agents most often produce |
+| [`fastapi-app`](fastapi-app/) | FastAPI + uvicorn | a small JSON API plus an HTML page, on the ASGI stack |
+| [`streamlit-app`](streamlit-app/) | Streamlit, fronted by a small stdlib proxy | a UI framework that cannot itself speak the marker contract, and the one-container proxy pattern that answers it |
 
 Every app serves `GET /` with one line:
 

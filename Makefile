@@ -18,12 +18,14 @@
 # own target because it does more.
 SHELL := /bin/bash
 
-APPS := hello-static notes-sqlite echo-go worker-node
+APPS := hello-static notes-sqlite echo-go worker-node nextjs-app fastapi-app streamlit-app
 CELL_UID := 10001
 
-.PHONY: check clean check-hello-static check-echo-go check-worker-node check-notes-sqlite
+.PHONY: check clean check-hello-static check-echo-go check-worker-node check-notes-sqlite \
+	check-nextjs-app check-fastapi-app check-streamlit-app
 
-check: check-hello-static check-echo-go check-worker-node check-notes-sqlite
+check: check-hello-static check-echo-go check-worker-node check-notes-sqlite \
+	check-nextjs-app check-fastapi-app check-streamlit-app
 	@echo "== all sample checks passed =="
 
 clean:
@@ -191,3 +193,120 @@ check-notes-sqlite:
 		   echo "  $$notes_json"; \
 		   exit 1 ;; \
 	esac
+
+# --- nextjs-app: marker check, then assert /about (a real page, not the marker route) is 200 ----
+
+check-nextjs-app:
+	@set -eu; \
+	app=nextjs-app; \
+	image="agentcell-sample-$$app:check"; \
+	container="agentcell-sample-$$app-check"; \
+	volume="agentcell-sample-$$app-check-data"; \
+	marker="check-marker-$$app-$$$$"; \
+	echo "== building $$app =="; \
+	docker build -q -t "$$image" "$$app" >/dev/null; \
+	docker rm -f "$$container" >/dev/null 2>&1 || true; \
+	docker volume rm "$$volume" >/dev/null 2>&1 || true; \
+	docker volume create "$$volume" >/dev/null; \
+	docker run --rm -v "$$volume:/data" alpine:3.20 chown $(CELL_UID):$(CELL_UID) /data >/dev/null; \
+	trap 'docker rm -f "$$container" >/dev/null 2>&1; docker volume rm "$$volume" >/dev/null 2>&1' EXIT; \
+	port=$$(( 20000 + RANDOM % 10000 )); \
+	docker run -d --name "$$container" -p "$$port:8080" -v "$$volume:/data" \
+		-e AGENTCELL_SAMPLE_MARKER="$$marker" "$$image" >/dev/null; \
+	ok=0; \
+	for i in $$(seq 1 20); do \
+		if body=$$(curl -sf "http://localhost:$$port/" 2>/dev/null); then ok=1; break; fi; \
+		sleep 0.5; \
+	done; \
+	if [ "$$ok" != "1" ]; then \
+		echo "FAIL: $$app never answered on / -- docker logs:"; docker logs "$$container" || true; exit 1; \
+	fi; \
+	want="agentcell sample: $$app $$marker"; \
+	if [ "$$body" != "$$want" ]; then \
+		echo "FAIL: $$app / returned:"; echo "  $$body"; echo "expected exactly:"; echo "  $$want"; exit 1; \
+	fi; \
+	echo "OK: $$app served '$$body'"; \
+	about_code=$$(curl -s -o /dev/null -w '%{http_code}' "http://localhost:$$port/about"); \
+	if [ "$$about_code" != "200" ]; then \
+		echo "FAIL: $$app /about returned HTTP $$about_code, expected 200"; docker logs "$$container" || true; exit 1; \
+	fi; \
+	echo "OK: $$app /about returned HTTP 200"
+
+# --- fastapi-app: marker check, then assert the JSON API returns the seeded widgets ------------
+
+check-fastapi-app:
+	@set -eu; \
+	app=fastapi-app; \
+	image="agentcell-sample-$$app:check"; \
+	container="agentcell-sample-$$app-check"; \
+	volume="agentcell-sample-$$app-check-data"; \
+	marker="check-marker-$$app-$$$$"; \
+	echo "== building $$app =="; \
+	docker build -q -t "$$image" "$$app" >/dev/null; \
+	docker rm -f "$$container" >/dev/null 2>&1 || true; \
+	docker volume rm "$$volume" >/dev/null 2>&1 || true; \
+	docker volume create "$$volume" >/dev/null; \
+	docker run --rm -v "$$volume:/data" alpine:3.20 chown $(CELL_UID):$(CELL_UID) /data >/dev/null; \
+	trap 'docker rm -f "$$container" >/dev/null 2>&1; docker volume rm "$$volume" >/dev/null 2>&1' EXIT; \
+	port=$$(( 20000 + RANDOM % 10000 )); \
+	docker run -d --name "$$container" -p "$$port:8080" -v "$$volume:/data" \
+		-e AGENTCELL_SAMPLE_MARKER="$$marker" "$$image" >/dev/null; \
+	ok=0; \
+	for i in $$(seq 1 20); do \
+		if body=$$(curl -sf "http://localhost:$$port/" 2>/dev/null); then ok=1; break; fi; \
+		sleep 0.5; \
+	done; \
+	if [ "$$ok" != "1" ]; then \
+		echo "FAIL: $$app never answered on / -- docker logs:"; docker logs "$$container" || true; exit 1; \
+	fi; \
+	want="agentcell sample: $$app $$marker"; \
+	if [ "$$body" != "$$want" ]; then \
+		echo "FAIL: $$app / returned:"; echo "  $$body"; echo "expected exactly:"; echo "  $$want"; exit 1; \
+	fi; \
+	echo "OK: $$app served '$$body'"; \
+	widgets_json=$$(curl -sf "http://localhost:$$port/api/widgets"); \
+	case "$$widgets_json" in \
+		*"sprocket"*) echo "OK: $$app /api/widgets returned JSON: $$widgets_json" ;; \
+		*) echo "FAIL: $$app /api/widgets did not return the seeded widgets. Returned:"; \
+		   echo "  $$widgets_json"; \
+		   exit 1 ;; \
+	esac
+
+# --- streamlit-app: marker check, then assert the proxy forwards /app to Streamlit's own UI -----
+
+check-streamlit-app:
+	@set -eu; \
+	app=streamlit-app; \
+	image="agentcell-sample-$$app:check"; \
+	container="agentcell-sample-$$app-check"; \
+	volume="agentcell-sample-$$app-check-data"; \
+	marker="check-marker-$$app-$$$$"; \
+	echo "== building $$app =="; \
+	docker build -q -t "$$image" "$$app" >/dev/null; \
+	docker rm -f "$$container" >/dev/null 2>&1 || true; \
+	docker volume rm "$$volume" >/dev/null 2>&1 || true; \
+	docker volume create "$$volume" >/dev/null; \
+	docker run --rm -v "$$volume:/data" alpine:3.20 chown $(CELL_UID):$(CELL_UID) /data >/dev/null; \
+	trap 'docker rm -f "$$container" >/dev/null 2>&1; docker volume rm "$$volume" >/dev/null 2>&1' EXIT; \
+	port=$$(( 20000 + RANDOM % 10000 )); \
+	docker run -d --name "$$container" -p "$$port:8080" -v "$$volume:/data" \
+		-e AGENTCELL_SAMPLE_MARKER="$$marker" "$$image" >/dev/null; \
+	ok=0; \
+	for i in $$(seq 1 40); do \
+		if body=$$(curl -sf "http://localhost:$$port/" 2>/dev/null); then ok=1; break; fi; \
+		sleep 0.5; \
+	done; \
+	if [ "$$ok" != "1" ]; then \
+		echo "FAIL: $$app never answered on / -- docker logs:"; docker logs "$$container" || true; exit 1; \
+	fi; \
+	want="agentcell sample: $$app $$marker"; \
+	if [ "$$body" != "$$want" ]; then \
+		echo "FAIL: $$app / returned:"; echo "  $$body"; echo "expected exactly:"; echo "  $$want"; exit 1; \
+	fi; \
+	echo "OK: $$app served '$$body'"; \
+	app_code=$$(curl -sfL -o /dev/null -w '%{http_code}' "http://localhost:$$port/app"); \
+	if [ "$$app_code" != "200" ]; then \
+		echo "FAIL: $$app /app (via the proxy, forwarded to Streamlit) returned HTTP $$app_code, expected 200"; \
+		docker logs "$$container" || true; exit 1; \
+	fi; \
+	echo "OK: $$app /app (proxied to Streamlit) returned HTTP 200"
