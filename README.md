@@ -3,7 +3,7 @@
 AgentCell is an AI-native deployment platform for small web apps and internal tools. These are
 working apps to start from, or to hand to a coding agent as the pattern to copy.
 
-Seven small apps, each one directory, each deployable with three commands:
+Nine small apps, each one directory, each deployable with three commands:
 
 ```sh
 agentcell login
@@ -21,6 +21,8 @@ then open the URL `agentcell deploy` prints.
 | [`nextjs-app`](nextjs-app/) | Next.js (App Router, TypeScript), `output: "standalone"` | a multi-stage frontend build, the stack coding agents most often produce |
 | [`fastapi-app`](fastapi-app/) | FastAPI + uvicorn | a small JSON API plus an HTML page, on the ASGI stack |
 | [`streamlit-app`](streamlit-app/) | Streamlit, fronted by a small stdlib proxy | a UI framework that cannot itself speak the marker contract, and the one-container proxy pattern that answers it |
+| [`static-plain`](static-plain/) | plain HTML, CSS and JS; no `Dockerfile`, no build | a static site served as-is: the directory index, `404.html`, and dotfiles left unpublished (rolling out) |
+| [`vite-react`](vite-react/) | Vite + React + react-router; no `Dockerfile` | a frontend built by the platform and served from `dist/`, with a client-side route that survives a reload (rolling out) |
 
 Every app serves `GET /` with one line:
 
@@ -32,6 +34,12 @@ agentcell sample: <name> <marker>
 otherwise the app generates a value itself the first time it starts and keeps it in
 `/data/marker` — so a fresh redeploy (a new marker, one way or the other) can be told from a
 restart of the same deployment (the same marker, because `/data` survived it).
+
+The two static samples, `static-plain` and `vite-react`, are the exception. A static site has no
+process and no `/data`, so its `index.html` holds the line without a marker,
+`agentcell sample: <name>`, and the platform supplies the marker as an `X-AgentCell-Marker`
+response header naming the deploy that served it. **Static sites are rolling out**: until the
+platform side is live, deploying either of them is refused for having no `Dockerfile`.
 
 ## The one-container-per-cell rule
 
@@ -50,7 +58,10 @@ make check
 
 builds every image with `docker`, runs each container once, and checks its marker line. For
 `notes-sqlite` it additionally writes a note, restarts the container against the same volume, and
-reads the note back — the same "survives a restart" property a redeploy relies on. See
+reads the note back — the same "survives a restart" property a redeploy relies on. For the static
+samples there is no container: `check-static-plain` checks the files the platform will detect and
+publish, and `check-vite-react` builds the app the way the platform does (`npm ci` then
+`npm run build`, in the pinned Node image, still through `docker`) and checks `dist/index.html`. See
 [`Makefile`](Makefile) for what each check actually asserts, and its header comment for the volume
 permission step it performs before each run (see `infra/STATUS.md`, "A cell can use its own
 `/data` as a non-root user").

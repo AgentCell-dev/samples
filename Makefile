@@ -21,11 +21,22 @@ SHELL := /bin/bash
 APPS := hello-static notes-sqlite echo-go worker-node nextjs-app fastapi-app streamlit-app
 CELL_UID := 10001
 
+# The static samples (static-plain, vite-react) have no image and no container, so they are not in
+# APPS and `clean` has nothing of theirs to remove. Their directories are variables only so a check
+# can be pointed at a deliberately broken copy to watch it fail.
+STATIC_PLAIN_DIR ?= static-plain
+VITE_REACT_DIR ?= vite-react
+
+# The Node image a static-build cell is built in (infra/STATIC-CELLS.md §3: "the pin
+# samples/nextjs-app uses"). Read from that Dockerfile rather than restated, so there is one place
+# holding the digest; check-vite-react refuses to run if the read comes back empty.
+NODE_IMAGE := $(shell sed -n 's/^FROM \(node@sha256:[0-9a-f]\{64\}\) AS build$$/\1/p' nextjs-app/Dockerfile)
+
 .PHONY: check clean check-hello-static check-echo-go check-worker-node check-notes-sqlite \
-	check-nextjs-app check-fastapi-app check-streamlit-app
+	check-nextjs-app check-fastapi-app check-streamlit-app check-static-plain check-vite-react
 
 check: check-hello-static check-echo-go check-worker-node check-notes-sqlite \
-	check-nextjs-app check-fastapi-app check-streamlit-app
+	check-nextjs-app check-fastapi-app check-streamlit-app check-static-plain check-vite-react
 	@echo "== all sample checks passed =="
 
 clean:
@@ -310,3 +321,62 @@ check-streamlit-app:
 		docker logs "$$container" || true; exit 1; \
 	fi; \
 	echo "OK: $$app /app (proxied to Streamlit) returned HTTP 200"
+
+# --- static-plain, vite-react: static cells (infra/STATIC-CELLS.md) ------------------------------
+#
+# A static cell has no container to run, so these check what the platform reads: the shape it will
+# detect at the root (§1), and the files it will publish. The serving rules themselves -- the
+# directory index, the SPA fallback, dotfiles left out -- belong to the edge, and the live
+# `make static-smoke` in infra is what exercises them against these two directories.
+#
+# static-plain must be detected as static-plain: an index.html at the root and neither a Dockerfile
+# nor a package.json (either would win the detection order). It must also still carry the inputs
+# its README's checks need: about/index.html for the directory-index rule, 404.html so unknown
+# paths are 404s, .well-known/ as the published dot-directory, and .env as the one that must not be.
+
+check-static-plain:
+	@set -eu; \
+	app=static-plain; dir="$(STATIC_PLAIN_DIR)"; \
+	echo "== checking $$app (static-plain shape, no build) =="; \
+	for f in Dockerfile package.json; do \
+		if [ -e "$$dir/$$f" ]; then echo "FAIL: $$app has $$f, which would win detection over index.html"; exit 1; fi; \
+	done; \
+	for f in index.html about/index.html contact.html 404.html .well-known/security.txt .env; do \
+		if [ ! -f "$$dir/$$f" ]; then echo "FAIL: $$app lacks $$f"; exit 1; fi; \
+	done; \
+	want="agentcell sample: $$app"; \
+	if ! grep -qxF "$$want" "$$dir/index.html"; then \
+		echo "FAIL: $$app index.html has no line exactly:"; echo "  $$want"; exit 1; \
+	fi; \
+	echo "OK: $$app index.html holds '$$want', and every file its README checks is present"
+
+# vite-react is built exactly as the platform builds a static-build cell: in the pinned Node image,
+# `npm ci` from the committed lockfile, then `npm run build`. The source goes in and dist/ comes out
+# through tar on stdin/stdout rather than a bind mount, so node_modules and dist never land in the
+# working tree and the check behaves the same on a hosted runner as on a workstation. It then
+# asserts dist/index.html holds the marker line (Vite keeps index.html's body as written), that
+# dist/ has no 404.html (so the SPA fallback is on by rule and /about survives a reload), and that
+# the bundle Vite emitted is there.
+
+check-vite-react:
+	@set -eu -o pipefail; \
+	app=vite-react; dir="$(VITE_REACT_DIR)"; image="$(NODE_IMAGE)"; \
+	if [ -z "$$image" ]; then echo "FAIL: could not read the node@sha256 build pin from nextjs-app/Dockerfile"; exit 1; fi; \
+	for f in package.json package-lock.json index.html; do \
+		if [ ! -f "$$dir/$$f" ]; then echo "FAIL: $$app lacks $$f"; exit 1; fi; \
+	done; \
+	if [ -e "$$dir/Dockerfile" ]; then echo "FAIL: $$app has a Dockerfile, which would win detection over package.json"; exit 1; fi; \
+	out=$$(mktemp -d); trap 'rm -rf "$$out"' EXIT; \
+	echo "== building $$app (npm ci && npm run build, in the pinned node image) =="; \
+	COPYFILE_DISABLE=1 tar -C "$$dir" --exclude=./node_modules --exclude=./dist -cf - . \
+		| docker run --rm -i "$$image" sh -c \
+			'mkdir /src && cd /src && tar -xf - && npm ci --no-audit --no-fund >&2 && npm run build >&2 && tar -cf - dist' \
+		| tar -C "$$out" -xf -; \
+	if [ ! -f "$$out/dist/index.html" ]; then echo "FAIL: $$app build produced no dist/index.html"; exit 1; fi; \
+	want="agentcell sample: $$app"; \
+	if ! grep -qxF "$$want" "$$out/dist/index.html"; then \
+		echo "FAIL: $$app dist/index.html has no line exactly:"; echo "  $$want"; exit 1; \
+	fi; \
+	if [ -e "$$out/dist/404.html" ]; then echo "FAIL: $$app dist/ has a 404.html, which turns the SPA fallback off"; exit 1; fi; \
+	if ! ls "$$out"/dist/assets/*.js >/dev/null 2>&1; then echo "FAIL: $$app dist/assets/ holds no .js bundle"; exit 1; fi; \
+	echo "OK: $$app built dist/index.html holding '$$want', with no 404.html (SPA fallback on)"

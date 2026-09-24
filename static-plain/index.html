@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>static-plain</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<pre id="agentcell-sample">
+agentcell sample: static-plain
+</pre>
+<h1>A folder of HTML, served as-is</h1>
+<p>No Dockerfile, no <code>package.json</code>, no build: this directory is the site.</p>
+<ul>
+  <li><a href="/about">/about</a> is <code>about/index.html</code> (the directory-index rule)</li>
+  <li><a href="/contact">/contact</a> is <code>contact.html</code> (the <code>.html</code> rule)</li>
+  <li><a href="/no-such-page">/no-such-page</a> is <code>404.html</code>, with status 404</li>
+</ul>
+<p id="js-check">JavaScript has not run.</p>
+<script src="/app.js"></script>
+</body>
+</html>
