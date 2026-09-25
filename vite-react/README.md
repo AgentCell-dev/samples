@@ -5,9 +5,6 @@ is a Vite + React single-page app with react-router: the frontend coding agents 
 when there is no server to write. It has no `Dockerfile`. AgentCell builds it and serves the output
 as a static site, with no container behind it.
 
-**Static sites are rolling out.** They work once the platform side is live; until then
-`agentcell deploy` refuses a directory with no `Dockerfile`.
-
 ## Deploy it
 
 ```sh
@@ -20,8 +17,9 @@ Open the URL `agentcell deploy` prints. The site is private, behind the same sig
 You do not need to run `npm install` or `npm run build` first. The platform sees a `package.json`
 with a `build` script and builds on its side: `npm ci` from the committed `package-lock.json`,
 then `npm run build`. It serves `dist/`, the first of `dist/`, `build/` and `out/` that holds an
-`index.html`. The client leaves `node_modules/` out of the upload, so a local install does not slow
-the deploy down. `agentcell logs --build vite-react` shows the build output.
+`index.html`. Use client 0.1.4 or later: it leaves `node_modules/` out of the upload, so a local
+install does not slow the deploy down. An older client uploads `node_modules/` too, which usually
+pushes the upload over the limit. `agentcell logs --build vite-react` shows the build output.
 
 ## What it shows
 

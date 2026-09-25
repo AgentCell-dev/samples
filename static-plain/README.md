@@ -4,9 +4,6 @@ AgentCell is an AI-native deployment platform for small web apps and internal to
 is a folder of plain HTML, CSS and JavaScript with no `Dockerfile`, no `package.json` and no build:
 the directory is the site. It is served by AgentCell's edge directly, with no container behind it.
 
-**Static sites are rolling out.** They work once the platform side is live; until then
-`agentcell deploy` refuses a directory with no `Dockerfile`.
-
 ## Deploy it
 
 ```sh
